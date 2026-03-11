@@ -24,6 +24,8 @@ Set your OpenAI API key via the `OPENAI_API_KEY` environment variable (recommend
 
 If you want a local config file, copy `config/llm_config.example.yaml` to `config/llm_config.yaml` and keep `api_key` blank (the file is git-ignored).
 
+Alternatively, the UI includes an optional "OpenAI API key" field; if provided, it is stored only in your browser and sent with generate requests.
+
 Run the API:
 
 ```bash

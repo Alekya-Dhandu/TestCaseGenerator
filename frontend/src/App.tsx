@@ -16,6 +16,7 @@ type TestCase = {
 export const App: React.FC = () => {
   const [prdText, setPrdText] = useState("");
   const [impactedScreens, setImpactedScreens] = useState("");
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("openai_api_key") || "");
   const [isGenerating, setIsGenerating] = useState(false);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,10 @@ export const App: React.FC = () => {
 
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(apiKey.trim() ? { "X-OpenAI-Api-Key": apiKey.trim() } : {})
+        },
         body: JSON.stringify({
           prd_text: prdText,
           impacted_screens: screens
@@ -166,6 +170,34 @@ export const App: React.FC = () => {
             <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
               Comma-separated list. The generator will bias test cases towards
               these areas.
+            </span>
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <span style={{ fontSize: "0.9rem", fontWeight: 500 }}>
+              OpenAI API key (optional)
+            </span>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => {
+                const v = e.target.value;
+                setApiKey(v);
+                localStorage.setItem("openai_api_key", v);
+              }}
+              placeholder="sk-..."
+              style={{
+                borderRadius: "999px",
+                padding: "8px 14px",
+                border: "1px solid #374151",
+                background: "#020617",
+                color: "#e5e7eb",
+                fontSize: "0.9rem"
+              }}
+            />
+            <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+              Stored only in this browser (localStorage) and sent with generate requests.
+              Leave blank to use the server's <code>OPENAI_API_KEY</code>.
             </span>
           </label>
 

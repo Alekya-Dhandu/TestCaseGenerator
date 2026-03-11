@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -38,7 +38,9 @@ def health() -> Dict[str, str]:
 
 
 @app.post("/api/generate")
-def generate(req: GenerateRequest) -> Dict[str, Any]:
+def generate(
+    req: GenerateRequest, x_openai_api_key: Optional[str] = Header(default=None)
+) -> Dict[str, Any]:
     """
     Generate test cases from PRD + impacted screens using platform config.
     """
@@ -48,6 +50,7 @@ def generate(req: GenerateRequest) -> Dict[str, Any]:
         api_design=req.api_design,
         platform_data=platform_data,
         impacted_screens=req.impacted_screens,
+        api_key_override=x_openai_api_key,
     )
     # result already has shape: {"test_cases": [...], "used_mock": bool, "error": str|None}
     return result

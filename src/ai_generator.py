@@ -38,6 +38,7 @@ def generate_test_cases(
     api_design: Optional[Dict[str, Any]],
     platform_data: Dict[str, Any],
     impacted_screens: Optional[List[str]] = None,
+    api_key_override: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Generate structured test cases using OpenAI, guided by platform knowledge.
@@ -114,6 +115,8 @@ Restrictions:
     # Try real OpenAI call first
     try:
         config = _load_llm_config()
+        if api_key_override and api_key_override.strip():
+            config["api_key"] = api_key_override.strip()
         client = _create_client(config)
 
         response = client.chat.completions.create(
