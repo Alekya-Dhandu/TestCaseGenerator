@@ -1,0 +1,7 @@
+# OpenAI model settings
+# - model: e.g. "gpt-4.1-mini", "gpt-4.1", or your Azure/OpenAI deployment name
+# - api_key: leave blank and rely on the OPENAI_API_KEY environment variable (recommended)
+model: "gpt-4.1-mini"
+api_key: ""
+temperature: 0.2       # Low for consistent, deterministic outputs
+max_tokens: 2000       # Limit for speed and cost

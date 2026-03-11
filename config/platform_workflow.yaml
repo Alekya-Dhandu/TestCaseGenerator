@@ -1,0 +1,18 @@
+# Your platform knowledge (edit this with real info)
+workflows:
+  - name: Login Flow
+    steps: ["User enters creds", "Call /auth API", "Redirect to Home"]
+    devices: ["Android STB (5 units)", "LG Pro:Centric TV (3 units)"]
+    implemented: ["E2E automated", "Security checks partial"]
+
+devices:
+  total_stb: 5
+  total_tvs: 3
+  os_types: ["Android 11+", "webOS 6+"]
+
+test_types:
+  - smoke: "Basic sanity checks"
+  - regression: "Re-run existing tests"
+  - e2e: "Full user journeys"
+  - security: "Auth, injection vulns"
+  - edge: "Errors, low network, invalid data"

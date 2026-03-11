@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+openai
+PyMuPDF
+PyYAML
+openpyxl
+pydantic

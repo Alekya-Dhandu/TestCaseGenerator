@@ -1,0 +1,14 @@
+__pycache__/
+data/outputs/
+*.pyc
+.env  # For API keys
+config/llm_config.yaml
+
+# Frontend build/install artifacts
+frontend/node_modules/
+frontend/dist/
+
+# Local knowledge/training data (often large / proprietary)
+data/prds/
+data/testcases/
+data/knowledge_index.json
