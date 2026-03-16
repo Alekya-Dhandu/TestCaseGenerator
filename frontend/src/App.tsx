@@ -126,8 +126,8 @@ export const App: React.FC = () => {
         display: "flex",
         flexDirection: "column",
         fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-        background: "#0f172a",
-        color: "#e5e7eb",
+        background: "linear-gradient(90deg, #102845 0%, #286389 100%)",
+        color: "white",
         padding: "24px"
       }}
     >
@@ -135,7 +135,7 @@ export const App: React.FC = () => {
         <h2 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 600 }}>
           AI Test Case Generator
         </h2>
-        <p style={{ marginTop: "4px", color: "#9ca3af" }}>
+        <p style={{ marginTop: "4px", color: "rgba(255, 255, 255, 0.8)" }}>
           Paste a PRD and list impacted screens to auto-generate end-to-end
           test cases, then export them to Excel for TestPad.
         </p>
@@ -144,10 +144,10 @@ export const App: React.FC = () => {
       <main style={{ display: "grid", gridTemplateColumns: "1.2fr 1.8fr", gap: "24px", flex: 1 }}>
         <section
           style={{
-            background: "#020617",
+            background: "rgba(255, 255, 255, 0.1)",
             borderRadius: "16px",
             padding: "20px",
-            border: "1px solid #1f2937",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
             display: "flex",
             flexDirection: "column",
             gap: "12px"
@@ -171,9 +171,9 @@ export const App: React.FC = () => {
               style={{
                 borderRadius: "999px",
                 padding: "8px 14px",
-                border: "1px solid #374151",
-                background: "#020617",
-                color: "#e5e7eb",
+                border: "1px solid rgba(255, 255, 255, 0.3)",
+                background: "rgba(255, 255, 255, 0.1)",
+                color: "white",
                 fontSize: "0.9rem"
               }}
             >
@@ -195,9 +195,9 @@ export const App: React.FC = () => {
                   resize: "vertical",
                   borderRadius: "12px",
                   padding: "10px 12px",
-                  border: "1px solid #374151",
-                  background: "#020617",
-                  color: "#e5e7eb",
+                  border: "1px solid rgba(255, 255, 255, 0.3)",
+                  background: "rgba(255, 255, 255, 0.1)",
+                  color: "white",
                   fontFamily: "inherit",
                   fontSize: "0.9rem"
                 }}
@@ -218,13 +218,13 @@ export const App: React.FC = () => {
                 style={{
                   borderRadius: "12px",
                   padding: "10px 12px",
-                  border: "1px solid #374151",
-                  background: "#020617",
-                  color: "#e5e7eb",
+                  border: "1px solid rgba(255, 255, 255, 0.3)",
+                  background: "rgba(255, 255, 255, 0.1)",
+                  color: "white",
                   fontSize: "0.9rem"
                 }}
               />
-              <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+            <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.7)" }}>
                 The file is uploaded to the backend only for text extraction.
               </span>
             </label>
@@ -242,13 +242,13 @@ export const App: React.FC = () => {
               style={{
                 borderRadius: "999px",
                 padding: "8px 14px",
-                border: "1px solid #374151",
-                background: "#020617",
-                color: "#e5e7eb",
+                border: "1px solid rgba(255, 255, 255, 0.3)",
+                background: "rgba(255, 255, 255, 0.1)",
+                color: "white",
                 fontSize: "0.9rem"
               }}
             />
-            <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+            <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.7)" }}>
               Comma-separated list. The generator will bias test cases towards
               these areas.
             </span>
@@ -270,13 +270,13 @@ export const App: React.FC = () => {
               style={{
                 borderRadius: "999px",
                 padding: "8px 14px",
-                border: "1px solid #374151",
-                background: "#020617",
-                color: "#e5e7eb",
+                border: "1px solid rgba(255, 255, 255, 0.3)",
+                background: "rgba(255, 255, 255, 0.1)",
+                color: "white",
                 fontSize: "0.9rem"
               }}
             />
-            <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+            <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.7)" }}>
               Stored only in this browser (localStorage) and sent with generate requests.
               Leave blank to use the server's <code>OPENAI_API_KEY</code>.
             </span>
@@ -325,10 +325,10 @@ export const App: React.FC = () => {
 
         <section
           style={{
-            background: "#020617",
+            background: "rgba(255, 255, 255, 0.1)",
             borderRadius: "16px",
             padding: "16px",
-            border: "1px solid #1f2937",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
             display: "flex",
             flexDirection: "column",
             minHeight: 0
@@ -352,7 +352,7 @@ export const App: React.FC = () => {
               >
                 Generated test cases
               </h3>
-              <p style={{ margin: 0, fontSize: "0.8rem", color: "#9ca3af" }}>
+              <p style={{ margin: 0, fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)" }}>
                 {testCases.length
                   ? `${testCases.length} test cases ready to review or export.`
                   : "Run a generation to see suggested cases."}
@@ -399,8 +399,8 @@ export const App: React.FC = () => {
               flex: 1,
               overflow: "auto",
               borderRadius: "12px",
-              border: "1px solid #111827",
-              background: "#020617"
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              background: "rgba(255, 255, 255, 0.05)"
             }}
           >
             {testCases.length === 0 ? (
@@ -409,7 +409,7 @@ export const App: React.FC = () => {
                   padding: "24px",
                   textAlign: "center",
                   fontSize: "0.85rem",
-                  color: "#6b7280"
+                  color: "rgba(255, 255, 255, 0.6)"
                 }}
               >
                 Generated test cases will appear here in a compact table view.
@@ -422,7 +422,7 @@ export const App: React.FC = () => {
                   fontSize: "0.8rem"
                 }}
               >
-                <thead style={{ background: "#020617" }}>
+                <thead style={{ background: "rgba(255, 255, 255, 0.1)" }}>
                   <tr>
                     {["ID", "Title", "Type", "Priority", "Screen"].map((col) => (
                       <th
@@ -430,10 +430,10 @@ export const App: React.FC = () => {
                         style={{
                           textAlign: "left",
                           padding: "8px 10px",
-                          borderBottom: "1px solid #111827",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.2)",
                           position: "sticky",
                           top: 0,
-                          background: "#020617",
+                          background: "rgba(255, 255, 255, 0.1)",
                           zIndex: 1
                         }}
                       >
@@ -447,7 +447,7 @@ export const App: React.FC = () => {
                     <tr
                       key={tc.ID || idx}
                       style={{
-                        borderBottom: "1px solid #111827"
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.1)"
                       }}
                     >
                       <td style={{ padding: "6px 10px", whiteSpace: "nowrap" }}>
