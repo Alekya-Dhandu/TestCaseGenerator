@@ -1,6 +1,10 @@
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, Header
+import io
+
+import fitz  # PyMuPDF
+from docx import Document
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -54,6 +58,69 @@ def generate(
     )
     # result already has shape: {"test_cases": [...], "used_mock": bool, "error": str|None}
     return result
+
+
+def _extract_text_from_pdf_bytes(data: bytes) -> str:
+    doc = fitz.open(stream=data, filetype="pdf")
+    try:
+        parts: List[str] = []
+        for page in doc:
+            txt = page.get_text("text")
+            if txt:
+                parts.append(txt)
+        return "\n".join(parts).strip()
+    finally:
+        doc.close()
+
+
+def _extract_text_from_docx_bytes(data: bytes) -> str:
+    doc = Document(io.BytesIO(data))
+    parts = [p.text for p in doc.paragraphs if p.text and p.text.strip()]
+    return "\n".join(parts).strip()
+
+
+@app.post("/api/extract-prd")
+async def extract_prd(file: UploadFile = File(...)) -> Dict[str, str]:
+    """
+    Extract PRD text from an uploaded PDF or DOCX file.
+    """
+    filename = (file.filename or "").lower()
+    data = await file.read()
+
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file.")
+
+    # Basic size guard (15 MB)
+    if len(data) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 15MB).")
+
+    try:
+        if filename.endswith(".pdf") or file.content_type == "application/pdf":
+            text = _extract_text_from_pdf_bytes(data)
+        elif filename.endswith(".docx") or file.content_type in (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/octet-stream",
+        ):
+            text = _extract_text_from_docx_bytes(data)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported file type. Please upload a PDF or DOCX.",
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to extract text from file: {type(exc).__name__}",
+        )
+
+    if not text:
+        raise HTTPException(
+            status_code=400, detail="No extractable text found in the document."
+        )
+
+    return {"prd_text": text}
 
 
 @app.post("/api/export-xlsx")

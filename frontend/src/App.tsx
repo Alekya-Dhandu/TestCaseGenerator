@@ -14,7 +14,9 @@ type TestCase = {
 };
 
 export const App: React.FC = () => {
+  const [prdInputType, setPrdInputType] = useState<"text" | "pdf" | "docx">("text");
   const [prdText, setPrdText] = useState("");
+  const [prdFile, setPrdFile] = useState<File | null>(null);
   const [impactedScreens, setImpactedScreens] = useState("");
   const [apiKey, setApiKey] = useState(() => localStorage.getItem("openai_api_key") || "");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -34,6 +36,28 @@ export const App: React.FC = () => {
         .map((s) => s.trim())
         .filter(Boolean);
 
+      let prdTextToUse = prdText;
+      if (prdInputType !== "text") {
+        if (!prdFile) {
+          throw new Error("Please upload a PRD file first.");
+        }
+        const form = new FormData();
+        form.append("file", prdFile);
+        const extractRes = await fetch("/api/extract-prd", {
+          method: "POST",
+          body: form
+        });
+        if (!extractRes.ok) {
+          const msg = await extractRes.text();
+          throw new Error(`PRD extract failed (${extractRes.status}): ${msg}`);
+        }
+        const extracted = (await extractRes.json()) as { prd_text: string };
+        prdTextToUse = extracted.prd_text || "";
+        if (!prdTextToUse.trim()) {
+          throw new Error("Extracted PRD text is empty.");
+        }
+      }
+
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: {
@@ -41,7 +65,7 @@ export const App: React.FC = () => {
           ...(apiKey.trim() ? { "X-OpenAI-Api-Key": apiKey.trim() } : {})
         },
         body: JSON.stringify({
-          prd_text: prdText,
+          prd_text: prdTextToUse,
           impacted_screens: screens
         })
       });
@@ -130,24 +154,81 @@ export const App: React.FC = () => {
           }}
         >
           <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            <span style={{ fontSize: "0.9rem", fontWeight: 500 }}>PRD</span>
-            <textarea
-              value={prdText}
-              onChange={(e) => setPrdText(e.target.value)}
-              placeholder="Paste product requirements here..."
+            <span style={{ fontSize: "0.9rem", fontWeight: 500 }}>PRD input type</span>
+            <select
+              value={prdInputType}
+              onChange={(e) => {
+                const v = e.target.value as "text" | "pdf" | "docx";
+                setPrdInputType(v);
+                setError(null);
+                setTestCases([]);
+                if (v === "text") {
+                  setPrdFile(null);
+                } else {
+                  setPrdText("");
+                }
+              }}
               style={{
-                minHeight: "200px",
-                resize: "vertical",
-                borderRadius: "12px",
-                padding: "10px 12px",
+                borderRadius: "999px",
+                padding: "8px 14px",
                 border: "1px solid #374151",
                 background: "#020617",
                 color: "#e5e7eb",
-                fontFamily: "inherit",
                 fontSize: "0.9rem"
               }}
-            />
+            >
+              <option value="text">Paste text</option>
+              <option value="pdf">Upload PDF</option>
+              <option value="docx">Upload Word (.docx)</option>
+            </select>
           </label>
+
+          {prdInputType === "text" ? (
+            <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <span style={{ fontSize: "0.9rem", fontWeight: 500 }}>PRD</span>
+              <textarea
+                value={prdText}
+                onChange={(e) => setPrdText(e.target.value)}
+                placeholder="Paste product requirements here..."
+                style={{
+                  minHeight: "200px",
+                  resize: "vertical",
+                  borderRadius: "12px",
+                  padding: "10px 12px",
+                  border: "1px solid #374151",
+                  background: "#020617",
+                  color: "#e5e7eb",
+                  fontFamily: "inherit",
+                  fontSize: "0.9rem"
+                }}
+              />
+            </label>
+          ) : (
+            <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <span style={{ fontSize: "0.9rem", fontWeight: 500 }}>
+                Upload PRD {prdInputType === "pdf" ? "(PDF)" : "(DOCX)"}
+              </span>
+              <input
+                type="file"
+                accept={prdInputType === "pdf" ? ".pdf,application/pdf" : ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] || null;
+                  setPrdFile(f);
+                }}
+                style={{
+                  borderRadius: "12px",
+                  padding: "10px 12px",
+                  border: "1px solid #374151",
+                  background: "#020617",
+                  color: "#e5e7eb",
+                  fontSize: "0.9rem"
+                }}
+              />
+              <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+                The file is uploaded to the backend only for text extraction.
+              </span>
+            </label>
+          )}
 
           <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <span style={{ fontSize: "0.9rem", fontWeight: 500 }}>
@@ -203,7 +284,10 @@ export const App: React.FC = () => {
 
           <button
             onClick={handleGenerate}
-            disabled={isGenerating || !prdText.trim()}
+            disabled={
+              isGenerating ||
+              (prdInputType === "text" ? !prdText.trim() : !prdFile)
+            }
             style={{
               marginTop: "8px",
               alignSelf: "flex-start",
