@@ -172,7 +172,7 @@ export const App: React.FC = () => {
                 borderRadius: "999px",
                 padding: "8px 14px",
                 border: "1px solid rgba(255, 255, 255, 0.3)",
-                background: "rgba(255, 255, 255, 0.1)",
+                background: "rgba(0, 0, 0, 0.3)",
                 color: "white",
                 fontSize: "0.9rem"
               }}
@@ -196,7 +196,7 @@ export const App: React.FC = () => {
                   borderRadius: "12px",
                   padding: "10px 12px",
                   border: "1px solid rgba(255, 255, 255, 0.3)",
-                  background: "rgba(255, 255, 255, 0.1)",
+                  background: "rgba(0, 0, 0, 0.3)",
                   color: "white",
                   fontFamily: "inherit",
                   fontSize: "0.9rem"
@@ -219,7 +219,7 @@ export const App: React.FC = () => {
                   borderRadius: "12px",
                   padding: "10px 12px",
                   border: "1px solid rgba(255, 255, 255, 0.3)",
-                  background: "rgba(255, 255, 255, 0.1)",
+                  background: "rgba(0, 0, 0, 0.3)",
                   color: "white",
                   fontSize: "0.9rem"
                 }}
@@ -243,7 +243,7 @@ export const App: React.FC = () => {
                 borderRadius: "999px",
                 padding: "8px 14px",
                 border: "1px solid rgba(255, 255, 255, 0.3)",
-                background: "rgba(255, 255, 255, 0.1)",
+                background: "rgba(0, 0, 0, 0.3)",
                 color: "white",
                 fontSize: "0.9rem"
               }}
@@ -271,7 +271,7 @@ export const App: React.FC = () => {
                 borderRadius: "999px",
                 padding: "8px 14px",
                 border: "1px solid rgba(255, 255, 255, 0.3)",
-                background: "rgba(255, 255, 255, 0.1)",
+                background: "rgba(0, 0, 0, 0.3)",
                 color: "white",
                 fontSize: "0.9rem"
               }}
