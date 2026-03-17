@@ -18,7 +18,8 @@ export const App: React.FC = () => {
   const [prdText, setPrdText] = useState("");
   const [prdFile, setPrdFile] = useState<File | null>(null);
   const [impactedScreens, setImpactedScreens] = useState("");
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("openai_api_key") || "");
+  const [provider, setProvider] = useState(() => localStorage.getItem("ai_provider") || "openai");
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("api_key") || "");
   const [isGenerating, setIsGenerating] = useState(false);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -62,11 +63,12 @@ export const App: React.FC = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(apiKey.trim() ? { "X-OpenAI-Api-Key": apiKey.trim() } : {})
+          ...(apiKey.trim() ? { "X-API-Key": apiKey.trim() } : {})
         },
         body: JSON.stringify({
           prd_text: prdTextToUse,
-          impacted_screens: screens
+          impacted_screens: screens,
+          provider: provider
         })
       });
 
@@ -256,7 +258,36 @@ export const App: React.FC = () => {
 
           <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <span style={{ fontSize: "0.9rem", fontWeight: 500 }}>
-              OpenAI API key (optional)
+              AI Provider
+            </span>
+            <select
+              value={provider}
+              onChange={(e) => {
+                const v = e.target.value;
+                setProvider(v);
+                localStorage.setItem("ai_provider", v);
+              }}
+              style={{
+                borderRadius: "999px",
+                padding: "8px 14px",
+                border: "1px solid rgba(255, 255, 255, 0.3)",
+                background: "rgba(0, 0, 0, 0.3)",
+                color: "white",
+                fontSize: "0.9rem"
+              }}
+            >
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="google">Google</option>
+            </select>
+            <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.7)" }}>
+              Choose which AI provider to use for generating test cases.
+            </span>
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <span style={{ fontSize: "0.9rem", fontWeight: 500 }}>
+              AI API key (optional)
             </span>
             <input
               type="password"
@@ -264,7 +295,7 @@ export const App: React.FC = () => {
               onChange={(e) => {
                 const v = e.target.value;
                 setApiKey(v);
-                localStorage.setItem("openai_api_key", v);
+                localStorage.setItem("api_key", v);
               }}
               placeholder="sk-..."
               style={{
@@ -278,7 +309,7 @@ export const App: React.FC = () => {
             />
             <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.7)" }}>
               Stored only in this browser (localStorage) and sent with generate requests.
-              Leave blank to use the server's <code>OPENAI_API_KEY</code>.
+              Leave blank to use the server's configured API key.
             </span>
           </label>
 

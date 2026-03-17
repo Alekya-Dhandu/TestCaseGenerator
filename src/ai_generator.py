@@ -1,15 +1,118 @@
 import json
 import os
 from typing import Any, Dict, List, Optional
+from abc import ABC, abstractmethod
 
 import yaml
 from openai import OpenAI, OpenAIError
+try:
+    from anthropic import Anthropic
+except ImportError:
+    Anthropic = None
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+
 from src.knowledge_store import format_prd_context_for_prompt, retrieve_similar_prds
+
+
+class AIClient(ABC):
+    """Abstract base class for AI API clients."""
+
+    @abstractmethod
+    def generate_response(self, messages: List[Dict[str, str]], config: Dict[str, Any]) -> str:
+        """Generate a response from the AI model."""
+        pass
+
+
+class OpenAIClient(AIClient):
+    """OpenAI API client."""
+
+    def __init__(self, api_key: str):
+        self.client = OpenAI(api_key=api_key)
+
+    def generate_response(self, messages: List[Dict[str, str]], config: Dict[str, Any]) -> str:
+        response = self.client.chat.completions.create(
+            model=config["model"],
+            temperature=float(config.get("temperature", 0.2)),
+            max_tokens=int(config.get("max_tokens", 2000)),
+            messages=messages,
+        )
+        return response.choices[0].message.content
+
+
+class AnthropicClient(AIClient):
+    """Anthropic API client."""
+
+    def __init__(self, api_key: str):
+        if Anthropic is None:
+            raise ImportError("anthropic package is not installed")
+        self.client = Anthropic(api_key=api_key)
+
+    def generate_response(self, messages: List[Dict[str, str]], config: Dict[str, Any]) -> str:
+        # Convert messages to Anthropic format
+        system_message = ""
+        user_messages = []
+
+        for msg in messages:
+            if msg["role"] == "system":
+                system_message = msg["content"]
+            else:
+                user_messages.append(msg)
+
+        response = self.client.messages.create(
+            model=config["model"],
+            max_tokens=int(config.get("max_tokens", 2000)),
+            temperature=float(config.get("temperature", 0.2)),
+            system=system_message,
+            messages=user_messages,
+        )
+        return response.content[0].text
+
+
+class GoogleClient(AIClient):
+    """Google Generative AI client."""
+
+    def __init__(self, api_key: str):
+        if genai is None:
+            raise ImportError("google-generativeai package is not installed")
+        genai.configure(api_key=api_key)
+
+    def generate_response(self, messages: List[Dict[str, str]], config: Dict[str, Any]) -> str:
+        model = genai.GenerativeModel(config["model"])
+
+        # Convert messages to Google format
+        # For simplicity, combine system message with user message
+        system_content = ""
+        user_content = ""
+
+        for msg in messages:
+            if msg["role"] == "system":
+                system_content = msg["content"]
+            elif msg["role"] == "user":
+                user_content = msg["content"]
+
+        # Combine system and user content
+        full_prompt = system_content + "\n\n" + user_content if system_content else user_content
+
+        # Configure generation parameters
+        generation_config = genai.types.GenerationConfig(
+            temperature=float(config.get("temperature", 0.2)),
+            max_output_tokens=int(config.get("max_tokens", 2000)),
+        )
+
+        response = model.generate_content(
+            full_prompt,
+            generation_config=generation_config
+        )
+        return response.text
 
 
 def _load_llm_config(config_path: str = "config/llm_config.yaml") -> Dict[str, Any]:
     defaults: Dict[str, Any] = {
-        "model": os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+        "provider": os.getenv("AI_PROVIDER", "openai"),
+        "model": os.getenv("AI_MODEL", "gpt-4.1-mini"),
         "api_key": "",
         "temperature": 0.2,
         "max_tokens": 2000,
@@ -26,11 +129,33 @@ def _load_llm_config(config_path: str = "config/llm_config.yaml") -> Dict[str, A
     return defaults
 
 
-def _create_client(config: Dict[str, Any]) -> OpenAI:
+def _create_client(config: Dict[str, Any]) -> AIClient:
+    """Factory function to create the appropriate AI client."""
+    provider = config.get("provider", "openai").lower()
     api_key = (config.get("api_key") or "").strip()
-    if api_key:
-        return OpenAI(api_key=api_key)
-    return OpenAI()
+
+    # Get API key from environment if not provided in config
+    if not api_key:
+        env_vars = {
+            "openai": "OPENAI_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+            "google": "GOOGLE_API_KEY"
+        }
+        env_var = env_vars.get(provider)
+        if env_var:
+            api_key = os.getenv(env_var, "")
+
+    if not api_key:
+        raise ValueError(f"No API key provided for {provider} provider")
+
+    if provider == "openai":
+        return OpenAIClient(api_key)
+    elif provider == "anthropic":
+        return AnthropicClient(api_key)
+    elif provider == "google":
+        return GoogleClient(api_key)
+    else:
+        raise ValueError(f"Unsupported AI provider: {provider}")
 
 
 def generate_test_cases(
@@ -39,10 +164,11 @@ def generate_test_cases(
     platform_data: Dict[str, Any],
     impacted_screens: Optional[List[str]] = None,
     api_key_override: Optional[str] = None,
+    provider_override: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Generate structured test cases using OpenAI, guided by platform knowledge.
-    Falls back to deterministic mock cases when the OpenAI call fails
+    Generate structured test cases using AI (OpenAI, Anthropic, or Google), guided by platform knowledge.
+    Falls back to deterministic mock cases when the AI call fails
     (e.g. insufficient quota), so the app remains usable.
     """
     prd_snippet = prd_text[:6000] if prd_text else ""
@@ -112,24 +238,22 @@ Restrictions:
 - Ensure the JSON parses without errors.
 """
 
-    # Try real OpenAI call first
+    # Try real AI call first
     try:
         config = _load_llm_config()
         if api_key_override and api_key_override.strip():
             config["api_key"] = api_key_override.strip()
+        if provider_override and provider_override.strip():
+            config["provider"] = provider_override.strip()
         client = _create_client(config)
 
-        response = client.chat.completions.create(
-            model=config["model"],
-            temperature=float(config.get("temperature", 0.2)),
-            max_tokens=int(config.get("max_tokens", 2000)),
+        content = client.generate_response(
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_message},
             ],
+            config=config
         )
-
-        content = response.choices[0].message.content
 
         try:
             test_cases = json.loads(content)
@@ -147,7 +271,7 @@ Restrictions:
 
         return {"test_cases": test_cases, "used_mock": False, "error": None}
 
-    except (OpenAIError, Exception) as exc:
+    except Exception as exc:
         # Fallback: deterministic mock cases so the app keeps working.
         screens = impacted_screens_list or ["Primary flow"]
         mock_cases: List[Dict[str, Any]] = []

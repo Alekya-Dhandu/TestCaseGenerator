@@ -1,13 +1,13 @@
 ## AI Test Case Generator
 
-Python (FastAPI) + React app that takes a PRD and impacted screens/modules, generates platform-aware end-to-end test cases using OpenAI, and lets you export them to `.xlsx` (for use with tools like TestPad).
+Python (FastAPI) + React app that takes a PRD and impacted screens/modules, generates platform-aware end-to-end test cases using AI (OpenAI, Anthropic, or Google), and lets you export them to `.xlsx` (for use with tools like TestPad).
 
 ### Backend (FastAPI)
 
 - Location: `src/`
 - Main app: `src/main.py` (FastAPI app object = `app`)
 - Core pieces:
-  - `ai_generator.py`: wraps OpenAI and generates structured test case JSON.
+  - `ai_generator.py`: wraps AI APIs (OpenAI, Anthropic, Google) and generates structured test case JSON.
   - `data_loader.py`: loads platform config from `config/platform_workflow.yaml`.
   - `formatter.py`: converts test cases to an Excel file (saved or in-memory bytes).
 
@@ -20,11 +20,11 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-Set your OpenAI API key via the `OPENAI_API_KEY` environment variable (recommended).
+Set your AI API key via the appropriate environment variable (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY) based on your configured provider.
 
 If you want a local config file, copy `config/llm_config.example.yaml` to `config/llm_config.yaml` and keep `api_key` blank (the file is git-ignored).
 
-Alternatively, the UI includes an optional "OpenAI API key" field; if provided, it is stored only in your browser and sent with generate requests.
+Alternatively, the UI includes an optional "AI API key" field; if provided, it is stored only in your browser and sent with generate requests.
 
 Run the API:
 
@@ -100,5 +100,5 @@ When you click **Generate test cases** in the app:
 
 - The backend now calls `retrieve_similar_prds(...)` to find the most similar historical PRDs based on your current PRD text + impacted screens.
 - It injects a compact summary of those PRDs and example test case titles into the LLM prompt.
-- If OpenAI quota is unavailable, the app falls back to deterministic mock test cases, but the retrieval setup is already in place for when you enable a real model again.
+- If AI quota is unavailable, the app falls back to deterministic mock test cases, but the retrieval setup is already in place for when you enable a real model again.
 

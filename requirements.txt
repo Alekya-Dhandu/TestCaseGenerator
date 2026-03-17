@@ -1,6 +1,8 @@
 fastapi
 uvicorn[standard]
 openai
+anthropic
+google-generativeai
 PyMuPDF
 PyYAML
 openpyxl

@@ -1,7 +1,17 @@
-# OpenAI model settings
-# - model: e.g. "gpt-4.1-mini", "gpt-4.1", or your Azure/OpenAI deployment name
-# - api_key: leave blank and rely on the OPENAI_API_KEY environment variable (recommended)
+# AI provider settings
+# Supported providers: openai, anthropic, google
+provider: "openai"
+
+# Model settings (provider-specific)
+# For OpenAI: "gpt-4.1-mini", "gpt-4.1", or your Azure/OpenAI deployment name
+# For Anthropic: "claude-3-haiku-20240307", "claude-3-sonnet-20240229", etc.
+# For Google: "gemini-pro", "gemini-pro-vision", etc.
 model: "gpt-4.1-mini"
+
+# API key (leave blank and use environment variables)
+# OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY
 api_key: ""
+
+# Generation parameters
 temperature: 0.2       # Low for consistent, deterministic outputs
 max_tokens: 2000       # Limit for speed and cost

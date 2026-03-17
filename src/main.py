@@ -30,6 +30,7 @@ class GenerateRequest(BaseModel):
     prd_text: str
     impacted_screens: List[str] = []
     api_design: Optional[Dict[str, Any]] = None
+    provider: Optional[str] = None
 
 
 class ExportRequest(BaseModel):
@@ -43,7 +44,7 @@ def health() -> Dict[str, str]:
 
 @app.post("/api/generate")
 def generate(
-    req: GenerateRequest, x_openai_api_key: Optional[str] = Header(default=None)
+    req: GenerateRequest, x_api_key: Optional[str] = Header(default=None, alias="X-API-Key")
 ) -> Dict[str, Any]:
     """
     Generate test cases from PRD + impacted screens using platform config.
@@ -54,7 +55,8 @@ def generate(
         api_design=req.api_design,
         platform_data=platform_data,
         impacted_screens=req.impacted_screens,
-        api_key_override=x_openai_api_key,
+        api_key_override=x_api_key,
+        provider_override=req.provider,
     )
     # result already has shape: {"test_cases": [...], "used_mock": bool, "error": str|None}
     return result
