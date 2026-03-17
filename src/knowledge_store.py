@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 
-INDEX_PATH = Path("data/knowledge_index.json")
+# Use absolute path based on this file's location
+INDEX_PATH = Path(__file__).parent.parent / "data" / "knowledge_index.json"
 
 
 @dataclass

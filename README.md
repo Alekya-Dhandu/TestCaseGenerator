@@ -2,6 +2,14 @@
 
 Python (FastAPI) + React app that takes a PRD and impacted screens/modules, generates platform-aware end-to-end test cases using AI (OpenAI, Anthropic, or Google), and lets you export them to `.xlsx` (for use with tools like TestPad).
 
+### Features
+
+- **AI-Powered Test Case Generation**: Generate comprehensive test cases from PRD documents using multiple AI providers (OpenAI, Anthropic, Google)
+- **Knowledge Management**: Upload and manage training documents (PDFs and Excel files) to improve AI accuracy
+- **Platform-Aware**: Considers device types, workflows, and existing automation coverage
+- **Export to Excel**: Export generated test cases to Excel format compatible with TestPad and other test management tools
+- **Fallback Support**: Gracefully falls back to mock test cases when AI services are unavailable
+
 ### Backend (FastAPI)
 
 - Location: `src/`
@@ -10,8 +18,19 @@ Python (FastAPI) + React app that takes a PRD and impacted screens/modules, gene
   - `ai_generator.py`: wraps AI APIs (OpenAI, Anthropic, Google) and generates structured test case JSON.
   - `data_loader.py`: loads platform config from `config/platform_workflow.yaml`.
   - `formatter.py`: converts test cases to an Excel file (saved or in-memory bytes).
+  - `knowledge_store.py`: manages the knowledge base of training documents and example test cases.
+  - `ingest_prds.py`: processes uploaded PDF and Excel files for training.
 
-#### Setup
+#### Knowledge Management
+
+The system supports uploading training documents to improve test case generation accuracy:
+
+- **PDF Documents**: Upload PRD documents, requirements specifications, or any documentation
+- **Excel Files**: Upload spreadsheets containing example test cases for the AI to learn from
+- **Automatic Processing**: Documents are processed and added to a searchable knowledge base
+- **Screen Association**: Associate uploaded documents with specific screens/modules for better context
+
+### Setup
 
 ```bash
 cd TestCaseGenerator
@@ -36,6 +55,9 @@ uvicorn src.main:app --reload --port 8000
 
 - Location: `frontend/`
 - Entry: `frontend/src/main.tsx`, `frontend/src/App.tsx`
+- Features two main tabs:
+  - **Generate Test Cases**: Main interface for creating test cases from PRDs
+  - **Manage Knowledge**: Upload and manage training documents (PDFs and Excel files)
 - Proxy is configured so `/api/*` requests go to `http://localhost:8000`.
 
 Install and run:
@@ -60,7 +82,15 @@ Open the printed `http://localhost:5173` URL in your browser.
 
 You can "train" the app on your historical PRDs + test cases via a lightweight knowledge index. Conceptually this is RAG: the generator looks up similar past PRDs and example test cases and uses them as guidance when creating new ones.
 
-#### 1. Prepare folders and drop your files
+#### Option 1: UI-Based Upload (Recommended)
+
+1. Open the app and click the **"Manage Knowledge"** tab
+2. Upload PDF documents containing PRDs, requirements, or documentation
+3. Upload Excel files with example test cases
+4. Specify related screens/modules for better context (optional)
+5. Click **"Rebuild Knowledge Index"** to incorporate the uploaded files
+
+#### Option 2: Manual File Placement
 
 Create these folders (if they don't exist already):
 

@@ -13,7 +13,18 @@ type TestCase = {
   [key: string]: unknown;
 };
 
+type KnowledgeDocument = {
+  id: string;
+  filename: string;
+  screens: string[];
+  text_length: number;
+  example_testcases_count: number;
+};
+
+type TabType = "generate" | "knowledge";
+
 export const App: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<TabType>("generate");
   const [prdInputType, setPrdInputType] = useState<"text" | "pdf" | "docx">("text");
   const [prdText, setPrdText] = useState("");
   const [prdFile, setPrdFile] = useState<File | null>(null);
@@ -25,6 +36,12 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [usedMock, setUsedMock] = useState(false);
   const [mockInfo, setMockInfo] = useState<string | null>(null);
+
+  // Knowledge management state
+  const [knowledgeDocuments, setKnowledgeDocuments] = useState<KnowledgeDocument[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isRebuildingIndex, setIsRebuildingIndex] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>("");
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -121,6 +138,97 @@ export const App: React.FC = () => {
     }
   };
 
+  // Knowledge management functions
+  const loadKnowledgeDocuments = async () => {
+    try {
+      const res = await fetch("/api/knowledge/documents");
+      if (!res.ok) throw new Error(`Failed to load documents: ${res.status}`);
+      const data = await res.json();
+      setKnowledgeDocuments(data.documents || []);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to load knowledge documents");
+    }
+  };
+
+  const handleFileUpload = async (file: File, fileType: "pdf" | "excel", screens: string) => {
+    setIsUploading(true);
+    setUploadProgress(`Uploading ${file.name}...`);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("file_type", fileType);
+      formData.append("screens", screens);
+
+      const res = await fetch("/api/knowledge/upload", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || `Upload failed: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setUploadProgress(data.message);
+      await loadKnowledgeDocuments(); // Refresh the list
+    } catch (e: any) {
+      setError(e.message ?? "Upload failed");
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => setUploadProgress(""), 3000);
+    }
+  };
+
+  const handleDeleteDocument = async (documentId: string) => {
+    if (!confirm("Are you sure you want to delete this document?")) return;
+
+    try {
+      const res = await fetch(`/api/knowledge/documents/${documentId}`, {
+        method: "DELETE"
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || `Delete failed: ${res.status}`);
+      }
+
+      await loadKnowledgeDocuments(); // Refresh the list
+    } catch (e: any) {
+      setError(e.message ?? "Delete failed");
+    }
+  };
+
+  const handleRebuildIndex = async () => {
+    setIsRebuildingIndex(true);
+    try {
+      const res = await fetch("/api/knowledge/rebuild-index", {
+        method: "POST"
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || `Rebuild failed: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setUploadProgress(`Index rebuilt with ${data.documents_count} documents`);
+      setTimeout(() => setUploadProgress(""), 3000);
+    } catch (e: any) {
+      setError(e.message ?? "Rebuild failed");
+    } finally {
+      setIsRebuildingIndex(false);
+    }
+  };
+
+  // Load knowledge documents when switching to knowledge tab
+  React.useEffect(() => {
+    if (activeTab === "knowledge") {
+      loadKnowledgeDocuments();
+    }
+  }, [activeTab]);
+
   return (
     <div
       style={{
@@ -137,13 +245,48 @@ export const App: React.FC = () => {
         <h2 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 600 }}>
           AI Test Case Generator
         </h2>
-        <p style={{ marginTop: "4px", color: "rgba(255, 255, 255, 0.8)" }}>
-          Paste a PRD and list impacted screens to auto-generate end-to-end
-          test cases, then export them to Excel for TestPad.
+        <div style={{ marginTop: "16px", display: "flex", gap: "8px" }}>
+          <button
+            onClick={() => setActiveTab("generate")}
+            style={{
+              padding: "8px 16px",
+              borderRadius: "8px",
+              border: "none",
+              background: activeTab === "generate" ? "#22c55e" : "rgba(255, 255, 255, 0.1)",
+              color: "white",
+              fontSize: "0.9rem",
+              fontWeight: 500,
+              cursor: "pointer"
+            }}
+          >
+            Generate Test Cases
+          </button>
+          <button
+            onClick={() => setActiveTab("knowledge")}
+            style={{
+              padding: "8px 16px",
+              borderRadius: "8px",
+              border: "none",
+              background: activeTab === "knowledge" ? "#22c55e" : "rgba(255, 255, 255, 0.1)",
+              color: "white",
+              fontSize: "0.9rem",
+              fontWeight: 500,
+              cursor: "pointer"
+            }}
+          >
+            Manage Knowledge
+          </button>
+        </div>
+        <p style={{ marginTop: "8px", color: "rgba(255, 255, 255, 0.8)" }}>
+          {activeTab === "generate"
+            ? "Paste a PRD and list impacted screens to auto-generate end-to-end test cases, then export them to Excel for TestPad."
+            : "Upload PDF documents and Excel files with example test cases to train the AI for better test case generation."
+          }
         </p>
       </header>
 
-      <main style={{ display: "grid", gridTemplateColumns: "1.2fr 1.8fr", gap: "24px", flex: 1 }}>
+      {activeTab === "generate" ? (
+        <main style={{ display: "grid", gridTemplateColumns: "1.2fr 1.8fr", gap: "24px", flex: 1 }}>
         <section
           style={{
             background: "rgba(255, 255, 255, 0.1)",
@@ -496,6 +639,311 @@ export const App: React.FC = () => {
           </div>
         </section>
       </main>
+      ) : (
+        <main style={{ display: "flex", flexDirection: "column", gap: "24px", flex: 1 }}>
+          {/* Upload Section */}
+          <section
+            style={{
+              background: "rgba(255, 255, 255, 0.1)",
+              borderRadius: "16px",
+              padding: "20px",
+              border: "1px solid rgba(255, 255, 255, 0.2)"
+            }}
+          >
+            <h3 style={{ margin: "0 0 16px 0", fontSize: "1.25rem", fontWeight: 600 }}>
+              Upload Training Documents
+            </h3>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+              {/* PDF Upload */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 500 }}>PDF Documents</h4>
+                <p style={{ margin: 0, fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)" }}>
+                  Upload PRD documents, requirements specs, or any documentation to train the AI.
+                </p>
+                <FileUploadArea
+                  accept=".pdf"
+                  fileType="pdf"
+                  onUpload={handleFileUpload}
+                  disabled={isUploading}
+                />
+              </div>
+
+              {/* Excel Upload */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 500 }}>Excel Test Cases</h4>
+                <p style={{ margin: 0, fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)" }}>
+                  Upload spreadsheets with example test cases for the AI to learn from.
+                </p>
+                <FileUploadArea
+                  accept=".xlsx,.xls"
+                  fileType="excel"
+                  onUpload={handleFileUpload}
+                  disabled={isUploading}
+                />
+              </div>
+            </div>
+
+            {uploadProgress && (
+              <div
+                style={{
+                  marginTop: "16px",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  background: "rgba(34, 197, 94, 0.1)",
+                  border: "1px solid rgba(34, 197, 94, 0.3)",
+                  color: "#22c55e"
+                }}
+              >
+                {uploadProgress}
+              </div>
+            )}
+
+            <div style={{ marginTop: "20px", display: "flex", gap: "12px" }}>
+              <button
+                onClick={handleRebuildIndex}
+                disabled={isRebuildingIndex}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: "8px",
+                  border: "none",
+                  background: isRebuildingIndex ? "#4b5563" : "#22c55e",
+                  color: "white",
+                  fontWeight: 600,
+                  cursor: isRebuildingIndex ? "not-allowed" : "pointer"
+                }}
+              >
+                {isRebuildingIndex ? "Rebuilding..." : "Rebuild Knowledge Index"}
+              </button>
+              <span style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)", alignSelf: "center" }}>
+                Run this after uploading files to incorporate them into the AI's knowledge base
+              </span>
+            </div>
+          </section>
+
+          {/* Documents List Section */}
+          <section
+            style={{
+              background: "rgba(255, 255, 255, 0.1)",
+              borderRadius: "16px",
+              padding: "20px",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              flex: 1
+            }}
+          >
+            <h3 style={{ margin: "0 0 16px 0", fontSize: "1.25rem", fontWeight: 600 }}>
+              Knowledge Documents ({knowledgeDocuments.length})
+            </h3>
+
+            {knowledgeDocuments.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "40px",
+                  color: "rgba(255, 255, 255, 0.6)"
+                }}
+              >
+                <p>No documents uploaded yet.</p>
+                <p style={{ fontSize: "0.9rem" }}>Upload PDF and Excel files above to train the AI.</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: "0.9rem"
+                  }}
+                >
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.2)" }}>
+                      <th style={{ padding: "12px", textAlign: "left" }}>Filename</th>
+                      <th style={{ padding: "12px", textAlign: "left" }}>Screens</th>
+                      <th style={{ padding: "12px", textAlign: "center" }}>Text Length</th>
+                      <th style={{ padding: "12px", textAlign: "center" }}>Test Cases</th>
+                      <th style={{ padding: "12px", textAlign: "center" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {knowledgeDocuments.map((doc) => (
+                      <tr key={doc.id} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>
+                        <td style={{ padding: "12px" }}>{doc.filename}</td>
+                        <td style={{ padding: "12px" }}>
+                          {doc.screens.length > 0 ? doc.screens.join(", ") : "Not specified"}
+                        </td>
+                        <td style={{ padding: "12px", textAlign: "center" }}>{doc.text_length.toLocaleString()}</td>
+                        <td style={{ padding: "12px", textAlign: "center" }}>{doc.example_testcases_count}</td>
+                        <td style={{ padding: "12px", textAlign: "center" }}>
+                          <button
+                            onClick={() => handleDeleteDocument(doc.id)}
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                              border: "none",
+                              background: "#dc2626",
+                              color: "white",
+                              fontSize: "0.8rem",
+                              cursor: "pointer"
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </main>
+      )}
+
+      {error && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            right: "24px",
+            padding: "16px",
+            borderRadius: "8px",
+            background: "#dc2626",
+            color: "white",
+            maxWidth: "400px",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)"
+          }}
+        >
+          {error}
+          <button
+            onClick={() => setError(null)}
+            style={{
+              marginLeft: "12px",
+              padding: "4px 8px",
+              borderRadius: "4px",
+              border: "none",
+              background: "rgba(255, 255, 255, 0.2)",
+              color: "white",
+              cursor: "pointer"
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// File Upload Component
+const FileUploadArea: React.FC<{
+  accept: string;
+  fileType: "pdf" | "excel";
+  onUpload: (file: File, fileType: "pdf" | "excel", screens: string) => void;
+  disabled: boolean;
+}> = ({ accept, fileType, onUpload, disabled }) => {
+  const [dragOver, setDragOver] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [screens, setScreens] = useState("");
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      setSelectedFile(files[0]);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setSelectedFile(files[0]);
+    }
+  };
+
+  const handleUpload = () => {
+    if (selectedFile) {
+      onUpload(selectedFile, fileType, screens);
+      setSelectedFile(null);
+      setScreens("");
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div
+        onDrop={handleDrop}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        style={{
+          border: `2px dashed ${dragOver ? "#22c55e" : "rgba(255, 255, 255, 0.3)"}`,
+          borderRadius: "8px",
+          padding: "20px",
+          textAlign: "center",
+          cursor: disabled ? "not-allowed" : "pointer",
+          background: dragOver ? "rgba(34, 197, 94, 0.1)" : "rgba(0, 0, 0, 0.2)",
+          opacity: disabled ? 0.5 : 1
+        }}
+        onClick={() => !disabled && document.getElementById(`file-input-${fileType}`)?.click()}
+      >
+        {selectedFile ? (
+          <div>
+            <div style={{ fontWeight: 500 }}>{selectedFile.name}</div>
+            <div style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)" }}>
+              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div>📁 Drop {fileType.toUpperCase()} file here or click to browse</div>
+            <div style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)", marginTop: "4px" }}>
+              Supports {accept.replace(".", "")} files
+            </div>
+          </div>
+        )}
+        <input
+          id={`file-input-${fileType}`}
+          type="file"
+          accept={accept}
+          onChange={handleFileSelect}
+          style={{ display: "none" }}
+          disabled={disabled}
+        />
+      </div>
+
+      <input
+        type="text"
+        placeholder="Related screens (comma-separated, optional)"
+        value={screens}
+        onChange={(e) => setScreens(e.target.value)}
+        style={{
+          borderRadius: "6px",
+          padding: "8px 12px",
+          border: "1px solid rgba(255, 255, 255, 0.3)",
+          background: "rgba(0, 0, 0, 0.3)",
+          color: "white",
+          fontSize: "0.9rem"
+        }}
+      />
+
+      <button
+        onClick={handleUpload}
+        disabled={!selectedFile || disabled}
+        style={{
+          padding: "8px 16px",
+          borderRadius: "6px",
+          border: "none",
+          background: !selectedFile || disabled ? "#4b5563" : "#22c55e",
+          color: "white",
+          fontWeight: 500,
+          cursor: !selectedFile || disabled ? "not-allowed" : "pointer"
+        }}
+      >
+        Upload {fileType.toUpperCase()}
+      </button>
     </div>
   );
 };

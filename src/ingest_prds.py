@@ -10,8 +10,9 @@ from src.data_loader import load_prd
 from src.knowledge_store import INDEX_PATH
 
 
-PRD_DIR = Path("data/prds")
-TESTCASE_DIR = Path("data/testcases")
+# Use absolute paths based on this file's location
+PRD_DIR = Path(__file__).parent.parent / "data" / "prds"
+TESTCASE_DIR = Path(__file__).parent.parent / "data" / "testcases"
 
 
 def _stem(path: Path) -> str:
