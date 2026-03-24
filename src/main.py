@@ -47,6 +47,42 @@ def health() -> Dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/api/config")
+def get_config(provider: Optional[str] = None) -> Dict[str, Any]:
+    """Get current AI configuration and API key status."""
+    from src.ai_generator import _load_llm_config
+    import os
+
+    config = _load_llm_config()
+
+    # If provider is specified, update config with provider-specific model
+    if provider:
+        provider = provider.lower()
+        provider_models = {
+            "openai": "gpt-4.1-mini",
+            "anthropic": "claude-3-haiku-20240307",
+            "google": "gemini-2.0-flash"
+        }
+        if provider in provider_models:
+            config["provider"] = provider
+            config["model"] = provider_models[provider]
+
+    # Check which API keys are available
+    api_key_status = {
+        "openai": bool(os.getenv("OPENAI_API_KEY", "").strip()),
+        "anthropic": bool(os.getenv("ANTHROPIC_API_KEY", "").strip()),
+        "google": bool(os.getenv("GOOGLE_API_KEY", "").strip()),
+    }
+
+    return {
+        "current_provider": config.get("provider", "openai"),
+        "current_model": config.get("model", "gpt-4.1-mini"),
+        "api_keys_configured": api_key_status,
+        "temperature": config.get("temperature", 0.2),
+        "max_tokens": config.get("max_tokens", 2000),
+    }
+
+
 @app.post("/api/generate")
 def generate(
     req: GenerateRequest, x_api_key: Optional[str] = Header(default=None, alias="X-API-Key")

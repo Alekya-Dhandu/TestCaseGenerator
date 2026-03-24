@@ -10,7 +10,7 @@ try:
 except ImportError:
     Anthropic = None
 try:
-    import google.generativeai as genai
+     from google import genai
 except ImportError:
     genai = None
 
@@ -76,12 +76,31 @@ class GoogleClient(AIClient):
 
     def __init__(self, api_key: str):
         if genai is None:
-            raise ImportError("google-generativeai package is not installed")
-        genai.configure(api_key=api_key)
+            raise ImportError("google-genai package is not installed")
+        self.client = genai.Client(api_key=api_key)
+
+    @staticmethod
+    def _resolve_text_model(requested_model: str) -> str:
+        """Map non-text/specialized models to a safe text model for generate_content."""
+        model = (requested_model or "").strip()
+        if not model:
+            return "gemini-2.0-flash"
+
+        lower_model = model.lower()
+        unsupported_markers = (
+            "native-audio",
+            "preview-tts",
+            "-image",
+            "imagen",
+            "veo",
+            "embedding",
+        )
+        if any(marker in lower_model for marker in unsupported_markers):
+            return "gemini-2.0-flash"
+
+        return model
 
     def generate_response(self, messages: List[Dict[str, str]], config: Dict[str, Any]) -> str:
-        model = genai.GenerativeModel(config["model"])
-
         # Convert messages to Google format
         # For simplicity, combine system message with user message
         system_content = ""
@@ -96,17 +115,41 @@ class GoogleClient(AIClient):
         # Combine system and user content
         full_prompt = system_content + "\n\n" + user_content if system_content else user_content
 
-        # Configure generation parameters
-        generation_config = genai.types.GenerationConfig(
-            temperature=float(config.get("temperature", 0.2)),
-            max_output_tokens=int(config.get("max_tokens", 2000)),
-        )
+        # Use a generate_content-compatible text model.
+        requested_model = config.get("model", "gemini-2.0-flash")
+        model = self._resolve_text_model(requested_model)
 
-        response = model.generate_content(
-            full_prompt,
-            generation_config=generation_config
-        )
-        return response.text
+        try:
+            response = self.client.models.generate_content(
+                model=model,
+                contents=full_prompt,
+                config=genai.types.GenerateContentConfig(
+                    temperature=float(config.get("temperature", 0.2)),
+                    max_output_tokens=int(config.get("max_tokens", 2000)),
+                )
+            )
+            return response.candidates[0].content.parts[0].text
+        except Exception as e:
+            # Retry once with a known-safe model if the selected one is unsupported for generate_content.
+            error_text = str(e).lower()
+            should_retry = (
+                "not_found" in error_text
+                or "not found" in error_text
+                or "not supported for generatecontent" in error_text
+            )
+            if should_retry and model != "gemini-2.0-flash":
+                retry_response = self.client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=full_prompt,
+                    config=genai.types.GenerateContentConfig(
+                        temperature=float(config.get("temperature", 0.2)),
+                        max_output_tokens=int(config.get("max_tokens", 2000)),
+                    ),
+                )
+                return retry_response.candidates[0].content.parts[0].text
+
+            # Re-raise for upstream handling (will fall back to mock test cases)
+            raise
 
 
 def _load_llm_config(config_path: str = "config/llm_config.yaml") -> Dict[str, Any]:
@@ -144,6 +187,11 @@ def _create_client(config: Dict[str, Any]) -> AIClient:
         env_var = env_vars.get(provider)
         if env_var:
             api_key = os.getenv(env_var, "")
+            print(f"DEBUG: Using API key from environment variable {env_var}")
+        else:
+            print(f"DEBUG: No environment variable configured for provider {provider}")
+    else:
+        print(f"DEBUG: Using API key provided in request for provider {provider}")
 
     if not api_key:
         raise ValueError(f"No API key provided for {provider} provider")
@@ -245,6 +293,14 @@ Restrictions:
             config["api_key"] = api_key_override.strip()
         if provider_override and provider_override.strip():
             config["provider"] = provider_override.strip()
+            # Update model to a valid default for the new provider
+            provider_models = {
+                "openai": "gpt-4.1-mini",
+                "anthropic": "claude-3-haiku-20240307",
+                "google": "gemini-2.0-flash",
+            }
+            if config["provider"] in provider_models:
+                config["model"] = provider_models[config["provider"]]
         client = _create_client(config)
 
         content = client.generate_response(

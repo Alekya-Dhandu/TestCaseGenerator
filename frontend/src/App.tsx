@@ -30,6 +30,7 @@ export const App: React.FC = () => {
   const [prdFile, setPrdFile] = useState<File | null>(null);
   const [impactedScreens, setImpactedScreens] = useState("");
   const [provider, setProvider] = useState(() => localStorage.getItem("ai_provider") || "openai");
+  const [model, setModel] = useState(() => localStorage.getItem("ai_model") || "");
   const [apiKey, setApiKey] = useState(() => localStorage.getItem("api_key") || "");
   const [isGenerating, setIsGenerating] = useState(false);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
@@ -42,6 +43,30 @@ export const App: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isRebuildingIndex, setIsRebuildingIndex] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>("");
+
+  // Configuration state
+  const [config, setConfig] = useState<any>(null);
+
+  const loadConfig = async () => {
+    try {
+      const response = await fetch(`/api/config?provider=${provider}`);
+      if (response.ok) {
+        const data = await response.json();
+        setConfig(data);
+        // Set model to the provider's default if not already set
+        if (!model) {
+          setModel(data.current_model);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load config:", e);
+    }
+  };
+
+  // Load config when provider changes
+  React.useEffect(() => {
+    loadConfig();
+  }, [provider]);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -426,6 +451,12 @@ export const App: React.FC = () => {
             <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.7)" }}>
               Choose which AI provider to use for generating test cases.
             </span>
+            {config && (
+              <div style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.6)", marginTop: "4px" }}>
+                Current: {config.current_provider} ({config.current_model}) • 
+                API Keys: {Object.entries(config.api_keys_configured).map(([k, v]) => `${k}: ${v ? '✓' : '✗'}`).join(', ')}
+              </div>
+            )}
           </label>
 
           <label style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -862,88 +893,82 @@ const FileUploadArea: React.FC<{
   };
 
   const handleUpload = () => {
-    if (selectedFile) {
-      onUpload(selectedFile, fileType, screens);
+    if (selectedFile && screens.trim()) {
+      onUpload(selectedFile, fileType, screens.trim());
       setSelectedFile(null);
       setScreens("");
     }
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-      <div
-        onDrop={handleDrop}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        style={{
-          border: `2px dashed ${dragOver ? "#22c55e" : "rgba(255, 255, 255, 0.3)"}`,
-          borderRadius: "8px",
-          padding: "20px",
-          textAlign: "center",
-          cursor: disabled ? "not-allowed" : "pointer",
-          background: dragOver ? "rgba(34, 197, 94, 0.1)" : "rgba(0, 0, 0, 0.2)",
-          opacity: disabled ? 0.5 : 1
-        }}
-        onClick={() => !disabled && document.getElementById(`file-input-${fileType}`)?.click()}
-      >
-        {selectedFile ? (
-          <div>
-            <div style={{ fontWeight: 500 }}>{selectedFile.name}</div>
-            <div style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)" }}>
-              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-            </div>
-          </div>
-        ) : (
-          <div>
-            <div>📁 Drop {fileType.toUpperCase()} file here or click to browse</div>
-            <div style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)", marginTop: "4px" }}>
-              Supports {accept.replace(".", "")} files
-            </div>
-          </div>
-        )}
-        <input
-          id={`file-input-${fileType}`}
-          type="file"
-          accept={accept}
-          onChange={handleFileSelect}
-          style={{ display: "none" }}
-          disabled={disabled}
-        />
-      </div>
-
+    <div
+      onDrop={handleDrop}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      style={{
+        border: `2px dashed ${dragOver ? "#22c55e" : "rgba(255, 255, 255, 0.3)"}`,
+        borderRadius: "8px",
+        padding: "20px",
+        textAlign: "center",
+        background: dragOver ? "rgba(34, 197, 94, 0.1)" : "rgba(255, 255, 255, 0.05)",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1
+      }}
+    >
       <input
-        type="text"
-        placeholder="Related screens (comma-separated, optional)"
-        value={screens}
-        onChange={(e) => setScreens(e.target.value)}
-        style={{
-          borderRadius: "6px",
-          padding: "8px 12px",
-          border: "1px solid rgba(255, 255, 255, 0.3)",
-          background: "rgba(0, 0, 0, 0.3)",
-          color: "white",
-          fontSize: "0.9rem"
-        }}
+        type="file"
+        accept={accept}
+        onChange={handleFileSelect}
+        disabled={disabled}
+        style={{ display: "none" }}
+        id={`file-upload-${fileType}`}
       />
-
-      <button
-        onClick={handleUpload}
-        disabled={!selectedFile || disabled}
-        style={{
-          padding: "8px 16px",
-          borderRadius: "6px",
-          border: "none",
-          background: !selectedFile || disabled ? "#4b5563" : "#22c55e",
-          color: "white",
-          fontWeight: 500,
-          cursor: !selectedFile || disabled ? "not-allowed" : "pointer"
-        }}
-      >
-        Upload {fileType.toUpperCase()}
-      </button>
+      <label htmlFor={`file-upload-${fileType}`} style={{ cursor: disabled ? "not-allowed" : "pointer" }}>
+        <div style={{ fontSize: "1rem", marginBottom: "8px" }}>
+          📎 Drop {fileType.toUpperCase()} file here or click to browse
+        </div>
+        <div style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)" }}>
+          {selectedFile ? selectedFile.name : `Select a ${fileType} file`}
+        </div>
+      </label>
+      {selectedFile && (
+        <div style={{ marginTop: "12px" }}>
+          <input
+            type="text"
+            placeholder="Associated screens (comma-separated)"
+            value={screens}
+            onChange={(e) => setScreens(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "8px",
+              borderRadius: "4px",
+              border: "1px solid rgba(255, 255, 255, 0.3)",
+              background: "rgba(0, 0, 0, 0.3)",
+              color: "white",
+              fontSize: "0.8rem",
+              marginBottom: "8px"
+            }}
+          />
+          <button
+            onClick={handleUpload}
+            disabled={!screens.trim() || disabled}
+            style={{
+              padding: "8px 16px",
+              borderRadius: "4px",
+              border: "none",
+              background: "#22c55e",
+              color: "white",
+              cursor: (!screens.trim() || disabled) ? "not-allowed" : "pointer",
+              opacity: (!screens.trim() || disabled) ? 0.5 : 1
+            }}
+          >
+            Upload
+          </button>
+        </div>
+      )}
     </div>
   );
 };
